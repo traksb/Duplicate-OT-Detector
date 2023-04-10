@@ -1,0 +1,48 @@
+select distinct on (t1.answer_id)
+    t1.submission_id as "Completed Submission ID",
+    t1.response_text as "Reponse text",
+    t2.automatic_translated_answer,
+    t1.user_id as "User ID",
+    t2.submission_id as "Passed Submission ID"
+from
+    (
+        select
+            answers.id as answer_id,
+            answers.response_text,
+            answers.submission_id,
+            answers.user_id,
+            answers.project_survey_item_id,
+            submissions.project_id
+        from
+            answers
+            left join submissions on submissions.id = submission_id
+        where
+            submissions.status = 'completed'
+            and response_type = 'text'
+            and (LENGTH(response_text) - LENGTH(replace(response_text, ' ', ''))) > 10
+            and submissions.project_id IN ({{Project ID}}) 
+    ) t1
+    join (
+        select
+            answers.id as answer_id,
+            answers.response_text,
+            answers.submission_id,
+            answers.user_id,
+            answers.project_survey_item_id,
+            submissions.project_id,
+            answers.automatic_translated_answer
+        from
+            answers
+            left join submissions on submissions.id = submission_id
+            left join submission_qa_statuses sqs on sqs.submission_id = submissions.id
+        where
+            (
+                submissions.status = 'unpaid'
+                or submissions.status = 'final'
+            )
+            and sqs.status = 'pass'
+            and response_type = 'text'
+            and (LENGTH(response_text) - LENGTH(replace(response_text, ' ', ''))) > 10
+            and submissions.project_id IN ({{Project ID}}) 
+    ) t2 on t1.response_text = t2.response_text
+        and t1.project_survey_item_id = t2.project_survey_item_id
